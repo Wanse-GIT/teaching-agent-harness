@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能导学 Agent · Harness</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+    <!-- ===== Header ===== -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">∫</div>
+            <div class="title-block">
+                <h1>智能导学 Agent</h1>
+                <span class="subtitle">Harness · LangGraph 多Agent协作</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="phase-badge" id="phaseBadge"><i class="dot"></i>等待输入</span>
+            <button class="btn-ghost" id="convBtn" title="我的会话">🗂 会话</button>
+            <button class="btn-ghost" id="adminBtn" title="管理面板" style="display:none">🛡 管理</button>
+            <span class="user-chip" id="userChip" style="display:none">
+                <span class="user-avatar" id="userAvatar">👤</span>
+                <span class="user-name" id="userName">-</span>
+                <span class="user-role" id="userRole"></span>
+            </span>
+            <button class="btn-ghost" id="loginBtn" style="display:none" title="登录/注册">🔒 登录</button>
+            <button class="btn-ghost" id="logoutBtn" style="display:none" title="退出登录">⏻</button>
+            <button class="btn-ghost" id="restartBtn" title="重置会话">↺ 重置</button>
+        </div>
+    </header>
+
+    <div class="layout">
+        <!-- ===== Chat Area ===== -->
+        <main class="chat">
+            <div class="messages" id="messages">
+                <div class="welcome" id="welcome">
+                    <div class="welcome-glyph">🎓</div>
+                    <h2>你会被如何引导？</h2>
+                    <p>
+                        我会先感知你的<b>学习意愿与情绪</b>，再决定引导策略：
+                        想系统学习 → <em>示例复现</em>；遇到困难 → <em>苏格拉底式提问</em>；
+                        快速查证 → <em>直接回答 + 知识拓展</em>。必要时会给你规划分步学习计划。
+                    </p>
+                    <div class="examples">
+                        <button class="example-btn" data-q="我想学Python的range函数，从零开始">
+                            <span>📖</span>教学性问题
+                        </button>
+                        <button class="example-btn" data-q="我的代码报了IndexError，循环遍历列表总是出错，帮我看看">
+                            <span>🔍</span>解答性问题
+                        </button>
+                        <button class="example-btn" data-q="Python是哪年发布的？">
+                            <span>⚡</span>事实性问题
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <form class="composer" id="composer">
+                <textarea id="input" rows="1" placeholder="输入你的问题…（Enter 发送，Shift+Enter 换行）"></textarea>
+                <button type="submit" id="sendBtn" disabled>发送</button>
+            </form>
+        </main>
+
+        <!-- ===== Dashboard ===== -->
+        <aside class="dashboard">
+            <!-- Agent Pipeline -->
+            <section class="card" id="pipelineCard">
+                <h3>🤖 Agent 协作流水线</h3>
+                <div class="pipeline" id="pipeline">
+                    <div class="stage" data-agent="supervisor"><span class="stage-dot"></span>调度官</div>
+                    <div class="stage" data-agent="diagnostician"><span class="stage-dot"></span>诊断师</div>
+                    <div class="stage" data-agent="step_assessor"><span class="stage-dot"></span>评估官</div>
+                    <div class="stage" data-agent="tutor"><span class="stage-dot"></span>导师</div>
+                    <div class="stage" data-agent="reflector"><span class="stage-dot"></span>反思师</div>
+                </div>
+                <div class="route-reason" id="routeReason">等待调度…</div>
+            </section>
+
+            <!-- Classification -->
+            <section class="card">
+                <h3>📊 问题分类</h3>
+                <div class="class-head">
+                    <span class="class-icon" id="classIcon">❓</span>
+                    <div>
+                        <div class="class-label" id="classLabel">待分类</div>
+                        <div class="class-emotions" id="classEmotions"></div>
+                    </div>
+                </div>
+                <div class="reasoning" id="reasoning">诊断师将在这里解读你的学习意愿与情绪。</div>
+            </section>
+
+            <!-- Cognitive Radar -->
+            <section class="card">
+                <h3>🧠 认知状态 <span class="level-badge" id="cogLevel">-</span></h3>
+                <canvas id="radar" width="300" height="210"></canvas>
+            </section>
+
+            <!-- Step Timeline -->
+            <section class="card" id="stepCard" style="display:none">
+                <h3>📌 学习步骤 <span class="progress-badge" id="stepProgressBadge">-</span></h3>
+                <div class="progress-track"><div class="progress-fill" id="stepFill"></div></div>
+                <ol class="timeline" id="stepTimeline"></ol>
+            </section>
+
+            <!-- Profile -->
+            <section class="card">
+                <h3>👤 学生画像 <span class="profile-owner" id="profileOwner"></span></h3>
+                <div class="profile-identity" id="profileIdentity">尚未建立 · 随对话自动了解你</div>
+                <div class="tags" id="profileTags"></div>
+                <div class="topic-groups">
+                    <div class="topic-group" id="knownGroup" style="display:none">
+                        <label>✅ 已掌握</label><div class="chips" id="knownTopics"></div>
+                    </div>
+                    <div class="topic-group" id="weakGroup" style="display:none">
+                        <label>🎯 薄弱点</label><div class="chips" id="weakTopics"></div>
+                    </div>
+                    <div class="topic-group" id="interestGroup" style="display:none">
+                        <label>⭐ 兴趣</label><div class="chips" id="interestTopics"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Strategy Curve -->
+            <section class="card" id="strategyCard" style="display:none">
+                <h3>📈 策略效果进化</h3>
+                <canvas id="strategyChart" width="300" height="140"></canvas>
+                <div class="strategy-list" id="strategyList"></div>
+            </section>
+        </aside>
+    </div>
+</div>
+
+<!-- ===== 登录/注册浮层（v5.0） ===== -->
+<div class="auth-overlay" id="authOverlay" style="display:none">
+    <div class="auth-card">
+        <div class="auth-head">
+            <div class="logo">∫</div>
+            <div>
+                <h2 id="authTitle">欢迎回来</h2>
+                <p id="authSub">登录后你的画像与学习记录将只属于你</p>
+            </div>
+        </div>
+        <form id="authForm">
+            <label>用户名</label>
+            <input type="text" id="authUser" autocomplete="username"
+                   placeholder="3-32 位字母/数字/中文" required>
+            <label>密码</label>
+            <input type="password" id="authPass" autocomplete="current-password"
+                   placeholder="至少 6 位" required>
+            <button type="submit" class="auth-submit" id="authSubmit">登录</button>
+        </form>
+        <div class="auth-alt" id="authAlt">
+            还没有账号？<a href="#" id="authSwitch">注册一个</a>
+            <span class="auth-or">·</span>
+            <a href="#" id="authGuestLink" title="匿名模式下大家共享一个学习空间">先逛逛（访客模式）</a>
+        </div>
+        <div class="auth-error" id="authError" style="display:none"></div>
+    </div>
+</div>
+
+<!-- ===== 我的会话抽屉（v5.0） ===== -->
+<div class="drawer-mask" id="convDrawerMask" style="display:none"></div>
+<aside class="conv-drawer" id="convDrawer" style="display:none">
+    <div class="drawer-head">
+        <h3>🗂 我的会话</h3>
+        <div>
+            <button class="btn-ghost" id="newConvBtn">＋ 新会话</button>
+            <button class="btn-ghost" id="closeConvBtn">✕</button>
+        </div>
+    </div>
+    <div class="conv-list" id="convList">
+        <div class="conv-empty">还没有会话，发送第一条消息即会创建。</div>
+    </div>
+    <div class="drawer-foot">画像与教学经验跨会话累积；会话之间互相独立。</div>
+</aside>
+
+<!-- ===== 管理面板（v5.0，仅管理员） ===== -->
+<div class="admin-mask" id="adminMask" style="display:none"></div>
+<div class="admin-panel" id="adminPanel" style="display:none">
+    <div class="drawer-head">
+        <h3>🛡 管理面板</h3>
+        <button class="btn-ghost" id="closeAdminBtn">✕</button>
+    </div>
+    <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="users">用户管理</button>
+        <button class="admin-tab" data-tab="insights">教学经验库</button>
+        <button class="admin-tab" data-tab="stats">全局统计</button>
+    </div>
+    <div class="admin-body">
+        <!-- 用户管理 -->
+        <div class="admin-tabpane" id="tab-users">
+            <div class="admin-form">
+                <input type="text" id="newUserName" placeholder="用户名">
+                <input type="password" id="newUserPass" placeholder="密码 ≥6 位">
+                <select id="newUserRole"><option value="user">普通用户</option><option value="admin">管理员</option></select>
+                <button class="auth-submit small" id="createUserBtn">创建</button>
+            </div>
+            <table class="admin-table" id="usersTable">
+                <thead><tr><th>用户名</th><th>角色</th><th>会话</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
+                <tbody id="usersTbody"></tbody>
+            </table>
+        </div>
+        <!-- 教学经验库 -->
+        <div class="admin-tabpane" id="tab-insights" style="display:none">
+            <div class="admin-form">
+                <input type="text" id="insightFilter" placeholder="按主题过滤，如：Python 循环">
+                <button class="auth-submit small" id="insightFilterBtn">检索</button>
+                <button class="auth-submit small ghost" id="insightRefreshBtn">刷新</button>
+            </div>
+            <div id="insightsList" class="insights-list"></div>
+        </div>
+        <!-- 全局统计 -->
+        <div class="admin-tabpane" id="tab-stats" style="display:none">
+            <div class="stats-grid" id="statsGrid"></div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
